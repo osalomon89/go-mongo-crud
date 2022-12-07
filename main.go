@@ -44,9 +44,8 @@ type Item struct {
 }
 
 type ItemResponse struct {
-	Status int    `json:"status"`
-	ID     string `json:"id"`
-	Data   Item   `json:"data"`
+	Status int         `json:"status"`
+	Data   interface{} `json:"data"`
 }
 
 func main() {
@@ -75,24 +74,21 @@ func getItemsHandler(w http.ResponseWriter, req *http.Request) {
 	result, err := getRecords(req.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(struct {
-			Status int
-			Data   interface{}
-		}{
+		res, _ := json.Marshal(ItemResponse{
 			Status: http.StatusInternalServerError,
 			Data:   err,
 		})
+
+		w.Write(res)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(struct {
-		Status int
-		Data   interface{}
-	}{
+	res, _ := json.Marshal(ItemResponse{
 		Status: http.StatusOK,
 		Data:   result,
 	})
+	w.Write(res)
 }
 
 func createItemHandler(w http.ResponseWriter, req *http.Request) {
@@ -102,13 +98,11 @@ func createItemHandler(w http.ResponseWriter, req *http.Request) {
 	err := json.NewDecoder(req.Body).Decode(data)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(struct {
-			Status int
-			Data   interface{}
-		}{
-			Status: http.StatusBadRequest,
+		res, _ := json.Marshal(ItemResponse{
+			Status: http.StatusOK,
 			Data:   err,
 		})
+		w.Write(res)
 		return
 	}
 
@@ -136,24 +130,29 @@ func createItemHandler(w http.ResponseWriter, req *http.Request) {
 	result, err := collection.InsertOne(req.Context(), itemToSave)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(struct {
-			Status int
-			Data   interface{}
-		}{
-			Status: http.StatusInternalServerError,
+		response := ItemResponse{
+			Status: http.StatusOK,
 			Data:   err,
-		})
+		}
+
+		result, err := json.Marshal(response)
+		if err != nil {
+			fmt.Println("Unable to encode JSON")
+		}
+
+		w.Write(result)
 		return
 	}
 
-	id := fmt.Sprintf("%v", result.InsertedID)
+	fmt.Println(result.InsertedID)
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ItemResponse{
+	res, _ := json.Marshal(ItemResponse{
 		Status: http.StatusOK,
-		ID:     id,
 		Data:   itemToSave,
 	})
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
 }
 
 func getRecords(ctx context.Context) ([]Item, error) {
